@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/STm32_proj/STm32f446_Proj/project/Inc
+HeaderPath=C:/STm32_proj/STm32f446xx/project/Inc
 HeaderFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;
-SourcePath=C:/STm32_proj/STm32f446_Proj/project/Src
+SourcePath=C:/STm32_proj/STm32f446xx/project/Src
 SourceFiles=stm32f4xx_it.h;stm32f4xx_hal_conf.h;main.h;stm32f4xx_it.c;stm32f4xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]

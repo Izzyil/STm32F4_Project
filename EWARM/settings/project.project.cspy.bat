@@ -25,7 +25,7 @@ if not "%~1" == "" goto debugFile
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "C:\STm32_proj\STm32f446_Proj\project\EWARM\settings\project.project.general.xcl" --backend -f "C:\STm32_proj\STm32f446_Proj\project\EWARM\settings\project.project.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "C:\STm32_proj\STm32f446xx\project\EWARM\settings\project.project.general.xcl" --backend -f "C:\STm32_proj\STm32f446xx\project\EWARM\settings\project.project.driver.xcl" 
 
 @echo off 
 goto end 
@@ -34,7 +34,7 @@ goto end
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "C:\STm32_proj\STm32f446_Proj\project\EWARM\settings\project.project.general.xcl" "--debug_file=%~1" --backend -f "C:\STm32_proj\STm32f446_Proj\project\EWARM\settings\project.project.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "C:\STm32_proj\STm32f446xx\project\EWARM\settings\project.project.general.xcl" "--debug_file=%~1" --backend -f "C:\STm32_proj\STm32f446xx\project\EWARM\settings\project.project.driver.xcl" 
 
 @echo off 
 :end
