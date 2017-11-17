@@ -40,12 +40,21 @@
 #include "stm32f4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
+#include "mpu9250.h"
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c3;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+
+uint8_t buffer[6];
+ uint8_t  data[6];
+ uint16_t accel[3];
+float accelometer[3];
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -53,22 +62,37 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_I2C3_Init(void);
+static void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+#ifdef __GNUC__
+  #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+  #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-  
+PUTCHAR_PROTOTYPE
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, 0xFFFF);
+  HAL_StatusTypeDef HAL_UART_Transmit(UART_HandleTypeDef *huart, uint8_t *pData,
+                                      uint16_t Size, uint32_t TimeOut);
+  return ch;
+}
 /* USER CODE END 0 */
 
 int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  GPIO_PinState bButtonState;
-
+  uint8_t data[6];
+  uint8_t buffer[6];
+  uint16_t accel[3];
+  float accelometer[3] = {1.1, 2.2, 3.3};
+  uint8_t str[10] = "hello\n\r";
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -77,6 +101,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -88,21 +113,67 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_I2C3_Init();
+  MX_USART2_UART_Init();
 
   /* USER CODE BEGIN 2 */
+  buffer[0] = PWR_MGMT_1;
+  buffer[1] = 0x00;
+  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250, buffer, 2,100);
+  HAL_Delay(20);
+
+  buffer[2] = GYRO_CONFIG;
+  buffer[3] = 0x00;
+  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250, &buffer[2], 2,100);
+  HAL_Delay(20);
+
+  buffer[4] = ACCEL_CONFIG;
+  buffer[5] = 0x00;
+  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, &buffer[4], 2,100);
+  HAL_Delay(20);
+  
+  buffer[0] = WHO_AM_I;
+  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 1, 50);
+  HAL_Delay(30);
+  
+  data[0] = 0x00;
+  data[1] = 0x00;
+  HAL_I2C_Master_Receive(&hi2c3, MPU_9250<<1, data, 1, 50);
+  HAL_Delay(20);
+  if(data[0] == 0x71)
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+  
+   buffer[0] = PWR_MGMT_1;
+   buffer[1] = 0x01;
+   buffer[2] = CONFIG;
+   buffer[3] = 0x03;
+   buffer[4] = SMPLRT_DIV;
+   buffer[5] = 0x04;
+   HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
+   HAL_Delay(20);
+  
+   buffer[0] = GYRO_CONFIG;
+   buffer[1] = 0x00;
+   buffer[2] = ACCEL_CONFIG;
+   buffer[3] = 0x00;
+   buffer[4] = ACCEL_CONFIG_2;
+   buffer[5] = 0x03;
+   HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
+   HAL_Delay(20);
+   
+//   str = "hello\n";
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    printf("%s\n\r", str);
+    printf("number: %f\n\r", accelometer[0]);
+    HAL_Delay(500);
   /* USER CODE END WHILE */
-    bButtonState = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, bButtonState);
-    //HAL_Delay(1000);
-    
-  /* USER CODE BEGIN 3 */
 
+  /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 
@@ -127,7 +198,13 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = 16;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 84;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -137,12 +214,12 @@ void SystemClock_Config(void)
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
@@ -159,6 +236,45 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
+/* I2C3 init function */
+static void MX_I2C3_Init(void)
+{
+
+  hi2c3.Instance = I2C3;
+  hi2c3.Init.ClockSpeed = 100000;
+  hi2c3.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c3.Init.OwnAddress1 = 0;
+  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c3.Init.OwnAddress2 = 0;
+  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
+/* USART2 init function */
+static void MX_USART2_UART_Init(void)
+{
+
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    _Error_Handler(__FILE__, __LINE__);
+  }
+
+}
+
 /** Configure pins as 
         * Analog 
         * Input 
@@ -172,17 +288,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct;
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : PC13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_13;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA5 */
   GPIO_InitStruct.Pin = GPIO_PIN_5;
