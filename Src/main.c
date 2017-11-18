@@ -53,8 +53,8 @@ UART_HandleTypeDef huart2;
 
 uint8_t buffer[6];
  uint8_t  data[6];
- uint16_t accel[3];
-float accelometer[3];
+// uint16_t accel[3];
+//float accelometer[3];
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -90,9 +90,12 @@ int main(void)
   /* USER CODE BEGIN 1 */
   uint8_t data[6];
   uint8_t buffer[6];
-  uint16_t accel[3];
-  float accelometer[3] = {1.1, 2.2, 3.3};
-  uint8_t str[10] = "hello\n\r";
+  float gyroscope_bias[3];
+  float accelerometer_bias[3];;
+  
+  float temperature;
+  uint16_t temp;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -139,37 +142,75 @@ int main(void)
   data[0] = 0x00;
   data[1] = 0x00;
   HAL_I2C_Master_Receive(&hi2c3, MPU_9250<<1, data, 1, 50);
+  printf("Conecting..\n\r");
   HAL_Delay(20);
-  if(data[0] == 0x71)
+  if(data[0] == 0x71){
+    printf("Device ID:%x\n\r", data[0]); 
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+  }
+  buffer[0] = PWR_MGMT_1;
+  buffer[1] = 0x01;
+  buffer[2] = CONFIG;
+  buffer[3] = 0x03;
+  buffer[4] = SMPLRT_DIV;
+  buffer[5] = 0x04;
+  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
+  HAL_Delay(20);
   
-   buffer[0] = PWR_MGMT_1;
-   buffer[1] = 0x01;
-   buffer[2] = CONFIG;
-   buffer[3] = 0x03;
-   buffer[4] = SMPLRT_DIV;
-   buffer[5] = 0x04;
-   HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
-   HAL_Delay(20);
-  
-   buffer[0] = GYRO_CONFIG;
-   buffer[1] = 0x00;
-   buffer[2] = ACCEL_CONFIG;
-   buffer[3] = 0x00;
-   buffer[4] = ACCEL_CONFIG_2;
-   buffer[5] = 0x03;
-   HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
-   HAL_Delay(20);
+  buffer[0] = GYRO_CONFIG;
+  buffer[1] = 0x00;
+  buffer[2] = ACCEL_CONFIG;
+  buffer[3] = 0x00;
+  buffer[4] = ACCEL_CONFIG_2;
+  buffer[5] = 0x03;
+  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
+  HAL_Delay(20);
    
-//   str = "hello\n";
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  MPU9250_calibrate(&hi2c3, accelerometer_bias, gyroscope_bias);
+  
+  float gyroscope[3];
+  float acceleration[3];
   while (1)
   {
-    printf("%s\n\r", str);
-    printf("number: %f\n\r", accelometer[0]);
+    MPU9250_Accelerometer(&hi2c3, acceleration);
+    MPU9250_Gyroscope(&hi2c3, gyroscope);
+
+    acceleration[0] -= accelerometer_bias[0];
+    acceleration[1] -= accelerometer_bias[1];
+    acceleration[2] -= accelerometer_bias[2];
+
+    gyroscope[0] -= gyroscope_bias[0];
+    gyroscope[1] -= gyroscope_bias[1];
+    gyroscope[2] -= gyroscope_bias[2];
+   
+    buffer[0] = TEMP_OUT_H;
+    HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 1, 50);
+    HAL_Delay(30);
+    HAL_I2C_Master_Receive(&hi2c3, MPU_9250<<1, data, 2, 50);
+    HAL_Delay(30);
+    temp = (data[0] << 8) | data[1];
+    temperature = (float)(temp / 333.87) + 21.0;
+    
+    
+    
+    
+    printf("GYRO-------------------------------------->>>\n\r");
+    printf("gyroX: %f\n\r", gyroscope[0]);
+    printf("gyroY: %f\n\r", gyroscope[1]);
+    printf("gyroZ: %f\n\r", gyroscope[2]);
+    
+    printf("ACCE-------------------------------------->>>\n\r");
+    printf("accelerationX: %f\n\r", acceleration[0]);
+    printf("accelerationY: %f\n\r", acceleration[1]);
+    printf("accelerationZ: %f\n\r", acceleration[2]);
+    
+    printf("TEMP-------------------------------------->>>\n\r");
+    printf("temperature: %f\n\r", temperature);
+
     HAL_Delay(500);
   /* USER CODE END WHILE */
 
@@ -201,7 +242,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 84;
+  RCC_OscInitStruct.PLL.PLLN = 64;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
@@ -215,11 +256,11 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV4;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
   }

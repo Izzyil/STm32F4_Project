@@ -118,9 +118,9 @@
 
 //--decleration----------------------------------
 
-void MPU9250_calibrate(float *acceleration_bias, float *degree_bias);
-void MPU9250_Accelerometer(float *acceleration);
-void MPU9250_Gyroscope(float *degrees);
+void MPU9250_calibrate(I2C_HandleTypeDef *hi2c3, float *acceleration_bias, float *degree_bias);
+void MPU9250_Accelerometer(I2C_HandleTypeDef *hi2c3, float *acceleration);
+void MPU9250_Gyroscope(I2C_HandleTypeDef *hi2c3, float *degrees);
 void MPU9250_Temperature(float *temperature);
 void MPU9250_Motion(float *acceleration, float *degrees);
 
