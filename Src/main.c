@@ -52,9 +52,10 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 
 uint8_t buffer[6];
- uint8_t  data[6];
-// uint16_t accel[3];
-//float accelometer[3];
+uint8_t  data[6];
+ 
+float gyroscope[3];
+float acceleration[3];
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE END PV */
@@ -86,15 +87,12 @@ PUTCHAR_PROTOTYPE
 
 int main(void)
 {
-
+  uint8_t comState = 0;
   /* USER CODE BEGIN 1 */
-  uint8_t data[6];
-  uint8_t buffer[6];
   float gyroscope_bias[3];
   float accelerometer_bias[3];;
   
   float temperature;
-  uint16_t temp;
 
   /* USER CODE END 1 */
 
@@ -120,60 +118,28 @@ int main(void)
   MX_USART2_UART_Init();
 
   /* USER CODE BEGIN 2 */
-  buffer[0] = PWR_MGMT_1;
-  buffer[1] = 0x00;
-  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250, buffer, 2,100);
-  HAL_Delay(20);
-
-  buffer[2] = GYRO_CONFIG;
-  buffer[3] = 0x00;
-  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250, &buffer[2], 2,100);
-  HAL_Delay(20);
-
-  buffer[4] = ACCEL_CONFIG;
-  buffer[5] = 0x00;
-  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, &buffer[4], 2,100);
-  HAL_Delay(20);
   
-  buffer[0] = WHO_AM_I;
-  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 1, 50);
-  HAL_Delay(30);
-  
-  data[0] = 0x00;
-  data[1] = 0x00;
-  HAL_I2C_Master_Receive(&hi2c3, MPU_9250<<1, data, 1, 50);
+  printf("Initialazing..\n\r");
+  MPU9250_InitSensor(&hi2c3);
+
   printf("Conecting..\n\r");
+  comState = MPU9250_Connect(&hi2c3);
+ 
   HAL_Delay(20);
-  if(data[0] == 0x71){
-    printf("Device ID:%x\n\r", data[0]); 
+  if(comState){
+    printf("Connected!!\n\r");
+    printf("-----------------------\n\r");
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
   }
-  buffer[0] = PWR_MGMT_1;
-  buffer[1] = 0x01;
-  buffer[2] = CONFIG;
-  buffer[3] = 0x03;
-  buffer[4] = SMPLRT_DIV;
-  buffer[5] = 0x04;
-  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
-  HAL_Delay(20);
   
-  buffer[0] = GYRO_CONFIG;
-  buffer[1] = 0x00;
-  buffer[2] = ACCEL_CONFIG;
-  buffer[3] = 0x00;
-  buffer[4] = ACCEL_CONFIG_2;
-  buffer[5] = 0x03;
-  HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 6, 50);
-  HAL_Delay(20);
+   MPU9250_Config(&hi2c3);
    
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  MPU9250_calibrate(&hi2c3, accelerometer_bias, gyroscope_bias);
+//  MPU9250_calibrate(&hi2c3, accelerometer_bias, gyroscope_bias);
   
-  float gyroscope[3];
-  float acceleration[3];
   while (1)
   {
     MPU9250_Accelerometer(&hi2c3, acceleration);
@@ -187,16 +153,7 @@ int main(void)
     gyroscope[1] -= gyroscope_bias[1];
     gyroscope[2] -= gyroscope_bias[2];
    
-    buffer[0] = TEMP_OUT_H;
-    HAL_I2C_Master_Transmit(&hi2c3, MPU_9250<<1, buffer, 1, 50);
-    HAL_Delay(30);
-    HAL_I2C_Master_Receive(&hi2c3, MPU_9250<<1, data, 2, 50);
-    HAL_Delay(30);
-    temp = (data[0] << 8) | data[1];
-    temperature = (float)(temp / 333.87) + 21.0;
-    
-    
-    
+    MPU9250_Temperature(&hi2c3, &temperature); 
     
     printf("GYRO-------------------------------------->>>\n\r");
     printf("gyroX: %f\n\r", gyroscope[0]);
